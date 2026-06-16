@@ -1,0 +1,992 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Trading Signal Dashboard</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;700&family=Inter:wght@300;400;500;600;700&display=swap');
+
+:root {
+  --bg: #08090d;
+  --s1: #0e1018;
+  --s2: #13161f;
+  --s3: #1a1e2a;
+  --border: #1f2435;
+  --border2: #262c3d;
+  --long: #00e5a0;
+  --long-dim: rgba(0,229,160,0.1);
+  --short: #ff4466;
+  --short-dim: rgba(255,68,102,0.1);
+  --neutral: #f5a623;
+  --neutral-dim: rgba(245,166,35,0.1);
+  --text: #e2e8f4;
+  --muted: #5a6278;
+  --muted2: #3d4358;
+  --accent: #5b6ef5;
+  --accent2: #7c8cf8;
+  --mono: 'IBM Plex Mono', monospace;
+  --sans: 'Inter', sans-serif;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { font-size: 14px; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--sans);
+  min-height: 100vh;
+  padding-bottom: 48px;
+}
+
+/* ── HEADER ── */
+.header {
+  padding: 18px 16px 14px;
+  border-bottom: 1px solid var(--border);
+  background: var(--s1);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.header-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.logo { display: flex; align-items: center; gap: 8px; }
+
+.logo-icon {
+  width: 28px; height: 28px;
+  background: linear-gradient(135deg, var(--accent), #9b6ef5);
+  border-radius: 7px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 13px;
+}
+
+.logo-text {
+  font-family: var(--mono);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 1px;
+}
+.logo-text span { color: var(--accent2); }
+
+.header-right { display: flex; align-items: center; gap: 8px; }
+
+.status-bar {
+  display: flex; align-items: center; gap: 5px;
+  font-family: var(--mono); font-size: 10px; color: var(--muted);
+}
+
+.pulse {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--long);
+  animation: pulse 2s infinite;
+}
+@keyframes pulse {
+  0%,100% { opacity:1; transform:scale(1); }
+  50% { opacity:0.5; transform:scale(0.8); }
+}
+
+/* ── REFRESH BUTTON ── */
+.refresh-btn {
+  display: flex; align-items: center; gap: 5px;
+  padding: 6px 12px;
+  background: var(--s3);
+  border: 1px solid var(--border2);
+  border-radius: 8px;
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+.refresh-btn:hover { border-color: var(--accent); color: var(--accent2); }
+.refresh-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.refresh-btn .spin { display: inline-block; }
+.refresh-btn.loading .spin { animation: spin 0.7s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.countdown-row {
+  display: flex; align-items: center; justify-content: flex-end; gap: 6px;
+  font-family: var(--mono); font-size: 9px; color: var(--muted2);
+}
+.countdown-bar-wrap {
+  flex: 1; max-width: 100px;
+  height: 2px; background: var(--border); border-radius: 2px; overflow: hidden;
+}
+.countdown-bar {
+  height: 100%; background: var(--accent);
+  border-radius: 2px;
+  transition: width 1s linear;
+}
+
+/* ── ADD BAR ── */
+.add-bar {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+  background: var(--s1);
+}
+.add-form { display: flex; gap: 8px; }
+.add-input {
+  flex: 1;
+  background: var(--s3); border: 1px solid var(--border2); border-radius: 9px;
+  padding: 10px 14px;
+  font-family: var(--mono); font-size: 12px; color: var(--text);
+  outline: none; transition: border-color 0.2s; text-transform: uppercase;
+}
+.add-input::placeholder { color: var(--muted); text-transform: none; }
+.add-input:focus { border-color: var(--accent); }
+
+.add-btn {
+  padding: 10px 18px; background: var(--accent); border: none; border-radius: 9px;
+  color: #fff; font-family: var(--sans); font-size: 12px; font-weight: 600;
+  cursor: pointer; white-space: nowrap; transition: background 0.2s;
+}
+.add-btn:hover { background: var(--accent2); }
+.add-btn:disabled { background: var(--muted2); cursor: not-allowed; }
+
+.add-hint { margin-top: 7px; font-size: 11px; color: var(--muted); }
+.add-hint span { color: var(--accent2); }
+
+/* ── TOAST ── */
+.toast {
+  position: fixed; top: 16px; right: 16px;
+  background: var(--s3); border: 1px solid var(--border2);
+  border-radius: 10px; padding: 12px 16px;
+  font-size: 12px; z-index: 999; max-width: 260px;
+  transform: translateX(120%); transition: transform 0.3s ease;
+}
+.toast.show { transform: translateX(0); }
+.toast.success { border-color: var(--long); }
+.toast.error { border-color: var(--short); }
+.toast.info { border-color: var(--accent); }
+
+/* ── MAIN ── */
+.main { padding: 14px 16px; }
+
+.section-eyebrow {
+  font-family: var(--mono); font-size: 9px; letter-spacing: 2.5px;
+  text-transform: uppercase; color: var(--muted);
+  margin-bottom: 10px; margin-top: 4px;
+}
+
+/* ── ASSET CARD ── */
+.asset-card {
+  background: var(--s1);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  margin-bottom: 10px;
+  overflow: hidden;
+  transition: border-color 0.2s;
+}
+.asset-card.expanded { border-color: var(--border2); }
+
+/* ── CARD SUMMARY ROW (always visible, tappable) ── */
+.card-summary {
+  display: flex;
+  align-items: center;
+  padding: 13px 14px;
+  cursor: pointer;
+  user-select: none;
+  gap: 10px;
+  transition: background 0.15s;
+}
+.card-summary:active { background: var(--s2); }
+
+.asset-icon {
+  width: 34px; height: 34px; border-radius: 9px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 14px; font-weight: 700;
+  font-family: var(--mono); flex-shrink: 0;
+}
+
+.summary-info { flex: 1; min-width: 0; }
+
+.asset-ticker {
+  font-family: var(--mono); font-size: 13px; font-weight: 700;
+  line-height: 1; margin-bottom: 3px;
+}
+
+.source-badge {
+  font-family: var(--mono); font-size: 9px; padding: 1px 5px;
+  border-radius: 4px; letter-spacing: 0.5px;
+}
+.source-badge.binance { background: rgba(240,185,11,0.15); color: #f0b90b; }
+.source-badge.coingecko { background: rgba(91,110,245,0.15); color: var(--accent2); }
+
+.summary-right {
+  display: flex; flex-direction: column; align-items: flex-end; gap: 4px;
+  flex-shrink: 0;
+}
+
+.asset-price {
+  font-family: var(--mono); font-size: 15px; font-weight: 700; line-height: 1;
+}
+
+.asset-change {
+  font-family: var(--mono); font-size: 11px; font-weight: 500;
+}
+.asset-change.pos { color: var(--long); }
+.asset-change.neg { color: var(--short); }
+
+.signal-pill {
+  display: flex; align-items: center; gap: 4px;
+  padding: 3px 9px; border-radius: 6px;
+  font-family: var(--mono); font-size: 10px; font-weight: 700;
+  letter-spacing: 0.5px;
+}
+.signal-pill.LONG   { background: var(--long-dim);    color: var(--long);    border: 1px solid rgba(0,229,160,0.2); }
+.signal-pill.SHORT  { background: var(--short-dim);   color: var(--short);   border: 1px solid rgba(255,68,102,0.2); }
+.signal-pill.NEUTRAL{ background: var(--neutral-dim); color: var(--neutral); border: 1px solid rgba(245,166,35,0.2); }
+
+.chevron {
+  font-size: 11px; color: var(--muted); flex-shrink: 0;
+  transition: transform 0.25s ease;
+}
+.asset-card.expanded .chevron { transform: rotate(180deg); }
+
+/* ── CARD DETAIL (collapsible) ── */
+.card-detail {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.35s cubic-bezier(0.4,0,0.2,1);
+  border-top: 0px solid var(--border);
+}
+.asset-card.expanded .card-detail {
+  max-height: 600px;
+  border-top: 1px solid var(--border);
+}
+
+/* SIGNAL BLOCK */
+.signal-block {
+  padding: 12px 14px;
+  display: flex; align-items: center; gap: 10px;
+  border-bottom: 1px solid var(--border);
+}
+.signal-badge {
+  display: flex; align-items: center; gap: 6px;
+  padding: 7px 14px; border-radius: 9px;
+  font-family: var(--mono); font-size: 12px; font-weight: 700;
+  letter-spacing: 1px; flex-shrink: 0;
+}
+.signal-badge.LONG   { background: var(--long-dim);    color: var(--long);    border: 1px solid rgba(0,229,160,0.25); }
+.signal-badge.SHORT  { background: var(--short-dim);   color: var(--short);   border: 1px solid rgba(255,68,102,0.25); }
+.signal-badge.NEUTRAL{ background: var(--neutral-dim); color: var(--neutral); border: 1px solid rgba(245,166,35,0.25); }
+
+.signal-reason { font-size: 11px; color: var(--muted); line-height: 1.4; flex: 1; }
+
+.signal-strength { display: flex; gap: 3px; flex-shrink: 0; }
+.strength-pip { width: 6px; height: 6px; border-radius: 2px; background: var(--border2); }
+.strength-pip.active.LONG    { background: var(--long); }
+.strength-pip.active.SHORT   { background: var(--short); }
+.strength-pip.active.NEUTRAL { background: var(--neutral); }
+
+/* TP/SL */
+.tpsl-row {
+  display: grid; grid-template-columns: 1fr 1fr 1fr;
+  gap: 6px; padding: 12px 14px;
+  border-bottom: 1px solid var(--border);
+}
+.tpsl-box {
+  background: var(--s2); border: 1px solid var(--border); border-radius: 9px;
+  padding: 9px 8px; text-align: center;
+}
+.tpsl-label {
+  font-family: var(--mono); font-size: 9px; letter-spacing: 1px; margin-bottom: 4px;
+}
+.tpsl-label.sl  { color: var(--short); }
+.tpsl-label.tp1 { color: var(--long); }
+.tpsl-label.tp2 { color: var(--accent2); }
+.tpsl-value { font-family: var(--mono); font-size: 11px; font-weight: 700; }
+.tpsl-pct   { font-size: 10px; color: var(--muted); margin-top: 2px; }
+
+/* LEVELS */
+.levels-grid {
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 8px; padding: 12px 14px;
+}
+.level-group-label {
+  font-family: var(--mono); font-size: 9px;
+  letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 6px;
+}
+.level-group-label.support    { color: var(--long); }
+.level-group-label.resistance { color: var(--short); }
+
+.level-item {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 6px 9px; background: var(--s2);
+  border-radius: 7px; margin-bottom: 4px; border: 1px solid var(--border);
+}
+.level-label { font-size: 10px; color: var(--muted); }
+.level-price { font-family: var(--mono); font-size: 11px; font-weight: 700; }
+.level-price.support    { color: var(--long); }
+.level-price.resistance { color: var(--short); }
+
+/* REMOVE BTN inside detail */
+.detail-footer {
+  padding: 8px 14px 12px;
+  display: flex; justify-content: flex-end;
+}
+.remove-btn {
+  background: none; border: 1px solid var(--border2); border-radius: 7px;
+  color: var(--muted); font-size: 11px; padding: 5px 12px;
+  cursor: pointer; font-family: var(--sans); transition: all 0.2s;
+}
+.remove-btn:hover { background: var(--short-dim); border-color: var(--short); color: var(--short); }
+
+/* SKELETON */
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+.loading-text {
+  background: linear-gradient(90deg, var(--s3) 25%, var(--border2) 50%, var(--s3) 75%);
+  background-size: 200% 100%; animation: shimmer 1.5s infinite;
+  border-radius: 4px; color: transparent; user-select: none;
+}
+
+/* EMPTY */
+.empty-state { text-align: center; padding: 48px 24px; color: var(--muted); }
+.empty-icon  { font-size: 40px; margin-bottom: 14px; }
+.empty-title { font-size: 15px; font-weight: 600; margin-bottom: 6px; color: var(--text); }
+.empty-sub   { font-size: 12px; line-height: 1.6; }
+
+.last-update {
+  font-family: var(--mono); font-size: 10px; color: var(--muted2);
+  text-align: center; padding: 12px;
+}
+
+/* ── SIGNAL TIMESTAMP ── */
+.signal-timestamp {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  background: var(--s2);
+  border-top: 1px solid var(--border);
+  margin: 0 14px 12px;
+  border-radius: 10px;
+}
+
+.ts-icon {
+  font-size: 15px;
+  flex-shrink: 0;
+}
+
+.ts-info { flex: 1; }
+
+.ts-label {
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 3px;
+}
+
+.ts-datetime {
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 1px;
+}
+
+.ts-elapsed {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--muted);
+}
+
+.ts-elapsed span {
+  color: var(--accent2);
+  font-weight: 700;
+}
+
+/* ── NOTIF BUTTON ── */
+.notif-btn {
+  display: flex; align-items: center; gap: 5px;
+  padding: 6px 11px;
+  background: var(--s3);
+  border: 1px solid var(--border2);
+  border-radius: 8px;
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+.notif-btn:hover { border-color: var(--accent); color: var(--accent2); }
+.notif-btn.granted { border-color: rgba(0,229,160,0.4); color: var(--long); background: rgba(0,229,160,0.07); }
+.notif-btn.denied  { border-color: rgba(255,68,102,0.4); color: var(--short); background: rgba(255,68,102,0.07); cursor: not-allowed; }
+.notif-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--muted2); flex-shrink: 0;
+  transition: background 0.2s;
+}
+.notif-btn.granted .notif-dot { background: var(--long); animation: pulse 2s infinite; }
+.notif-btn.denied  .notif-dot { background: var(--short); }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="header">
+  <div class="header-top">
+    <div class="logo">
+      <div class="logo-icon">📡</div>
+      <div class="logo-text">SIGNAL<span>BOARD</span></div>
+    </div>
+    <div class="header-right">
+      <div class="status-bar">
+        <div class="pulse"></div>
+        <span>EN VIVO</span>
+      </div>
+      <button class="notif-btn" id="notifBtn" onclick="toggleNotifications()">
+        <div class="notif-dot" id="notifDot"></div>
+        <span id="notifLabel">ALERTAS</span>
+      </button>
+      <button class="refresh-btn" id="refreshBtn" onclick="manualRefresh()">
+        <span class="spin">↻</span> REFRESH
+      </button>
+    </div>
+  </div>
+  <div class="countdown-row">
+    <div class="countdown-bar-wrap">
+      <div class="countdown-bar" id="countdownBar" style="width:100%"></div>
+    </div>
+    <span id="countdownDisplay" style="font-size:9px;color:var(--muted2)">60s</span>
+  </div>
+</div>
+
+<!-- ADD BAR -->
+<div class="add-bar">
+  <div class="add-form">
+    <input class="add-input" id="addInput" placeholder="Ej: BTC, ETH, SOL, HYPE..." maxlength="20" />
+    <button class="add-btn" id="addBtn" onclick="handleAdd()">+ Añadir</button>
+  </div>
+  <div class="add-hint">Binance automático · Si no está usa <span>CoinGecko</span> (ej: HYPE)</div>
+</div>
+
+<!-- MAIN -->
+<div class="main">
+  <div class="section-eyebrow">Activos monitorizados · Toca para ver detalle</div>
+  <div id="cardsContainer"></div>
+  <div class="last-update" id="lastUpdate"></div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ── CONFIG ────────────────────────────────────────────────────────────────────
+const COINGECKO_MAP = {
+  'HYPE':'hyperliquid','SUI':'sui','APT':'aptos','SEI':'sei-network',
+  'INJ':'injective-protocol','TIA':'celestia','BLUR':'blur','STRK':'starknet',
+  'MANTA':'manta-network','ALT':'altlayer','NOT':'notcoin','IO':'io-net',
+  'ZK':'zksync','BLAST':'blast','EIGEN':'eigenlayer','DOGS':'dogs-2',
+  'HMSTR':'hamster-kombat','CATI':'catizen','PNUT':'peanut-the-squirrel',
+  'GOAT':'goat','MOODENG':'moo-deng','CHILLGUY':'chillguy',
+};
+
+const DEFAULT_ASSETS = ['ZEC','TAO','HYPE'];
+
+let assets        = JSON.parse(localStorage.getItem('sb_assets') || 'null') || DEFAULT_ASSETS;
+let priceData     = {};
+let expanded      = {};
+let signalHistory = JSON.parse(localStorage.getItem('sb_signals') || '{}');
+let countdown     = 60;
+let cdTimer       = null;
+let elapsedTimer  = null;
+let isRefreshing  = false;
+
+// ── NOTIFICATIONS ─────────────────────────────────────────────────────────────
+let notifsEnabled = localStorage.getItem('sb_notifs') === 'true';
+
+function updateNotifUI() {
+  const btn   = document.getElementById('notifBtn');
+  const dot   = document.getElementById('notifDot');
+  const label = document.getElementById('notifLabel');
+  if (!btn) return;
+  const perm = Notification.permission;
+  btn.className   = 'notif-btn';
+  if (perm === 'denied') {
+    btn.classList.add('denied');
+    label.textContent = 'BLOQUEADO';
+    notifsEnabled = false;
+  } else if (perm === 'granted' && notifsEnabled) {
+    btn.classList.add('granted');
+    label.textContent = '🔔 ON';
+  } else {
+    label.textContent = 'ALERTAS';
+  }
+}
+
+async function toggleNotifications() {
+  if (Notification.permission === 'denied') {
+    showToast('Notificaciones bloqueadas en Chrome. Haz clic en el candado de la barra de dirección para permitirlas.', 'error');
+    return;
+  }
+  if (!notifsEnabled) {
+    // Request permission
+    const perm = await Notification.requestPermission();
+    if (perm === 'granted') {
+      notifsEnabled = true;
+      localStorage.setItem('sb_notifs', 'true');
+      updateNotifUI();
+      showToast('✅ Notificaciones activadas', 'success');
+      // Send test notification
+      sendNotification('🔔 SignalBoard activado',
+        'Recibirás alertas cuando cambie la señal de un activo.', '📡');
+    } else {
+      showToast('Permiso denegado. Actívalo desde el candado de Chrome.', 'error');
+      updateNotifUI();
+    }
+  } else {
+    notifsEnabled = false;
+    localStorage.setItem('sb_notifs', 'false');
+    updateNotifUI();
+    showToast('🔕 Notificaciones desactivadas', 'info');
+  }
+}
+
+function sendNotification(title, body, icon = '📡') {
+  if (!notifsEnabled || Notification.permission !== 'granted') return;
+  try {
+    const n = new Notification(title, {
+      body,
+      icon: `data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>${icon}</text></svg>`,
+      badge: `data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📡</text></svg>`,
+      tag: title,        // prevent duplicate stacking
+      renotify: true,
+    });
+    n.onclick = () => { window.focus(); n.close(); };
+  } catch(e) { console.warn('Notification error:', e); }
+}
+
+function saveSignalHistory(){ localStorage.setItem('sb_signals', JSON.stringify(signalHistory)); }
+
+function recordSignal(ticker, signal) {
+  const prev = signalHistory[ticker];
+  const isNew = !prev || prev.signal !== signal;
+  if (isNew) {
+    const isFirstEver = !prev;
+    signalHistory[ticker] = { signal, ts: Date.now() };
+    saveSignalHistory();
+    // Notify only on change, not on first load
+    if (!isFirstEver) {
+      const arrow  = signal === 'LONG' ? '↑' : signal === 'SHORT' ? '↓' : '→';
+      const icon   = signal === 'LONG' ? '📈' : signal === 'SHORT' ? '📉' : '➡️';
+      const price  = priceData[ticker]?.price;
+      const priceStr = price ? ` · ${fmt(price)} USDT` : '';
+      sendNotification(
+        `${icon} ${ticker} → ${arrow} ${signal}`,
+        `Nueva señal detectada${priceStr}\n${new Date().toLocaleTimeString('es-ES')}`,
+        icon
+      );
+    }
+  }
+}
+
+function fmtElapsed(ms) {
+  const s = Math.floor(ms / 1000);
+  if (s < 60)  return `${s}s`;
+  const m = Math.floor(s / 60);
+  if (m < 60)  return `${m}m ${s % 60}s`;
+  const h = Math.floor(m / 60);
+  if (h < 24)  return `${h}h ${m % 60}m`;
+  const d = Math.floor(h / 24);
+  return `${d}d ${h % 24}h`;
+}
+
+function fmtDatetime(ts) {
+  const d    = new Date(ts);
+  const days = ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
+  const day  = days[d.getDay()];
+  const date = d.toLocaleDateString('es-ES', { day:'2-digit', month:'2-digit', year:'2-digit' });
+  const time = d.toLocaleTimeString('es-ES', { hour:'2-digit', minute:'2-digit', second:'2-digit' });
+  return `${day} ${date} · ${time}`;
+}
+
+function updateAllElapsed() {
+  assets.forEach(ticker => {
+    const el  = document.getElementById(`elapsed-${ticker}`);
+    const rec = signalHistory[ticker];
+    if (!el || !rec) return;
+    el.innerHTML = `hace <span>${fmtElapsed(Date.now() - rec.ts)}</span>`;
+  });
+}
+
+// ── TECHNICAL LEVELS ─────────────────────────────────────────────────────────
+function computeLevels(ticker, price) {
+  const predefined = {
+    ZEC:  { supports:[480,457,394,250], resistances:[560,630,690,750], sl_pct:0.08 },
+    TAO:  { supports:[273,246,234,197], resistances:[291,320,333,360], sl_pct:0.06 },
+    HYPE: { supports:null, resistances:null, sl_pct:0.07 },
+  };
+  if (predefined[ticker] && predefined[ticker].supports) return predefined[ticker];
+  const p = price;
+  return {
+    supports:    [+(p*0.97).toFixed(4),+(p*0.93).toFixed(4),+(p*0.87).toFixed(4),+(p*0.80).toFixed(4)],
+    resistances: [+(p*1.04).toFixed(4),+(p*1.10).toFixed(4),+(p*1.18).toFixed(4),+(p*1.28).toFixed(4)],
+    sl_pct: 0.07,
+  };
+}
+
+function computeSignal(ticker, price, change24h, levels) {
+  const sups = levels.supports, ress = levels.resistances;
+  let score = 0, reasons = [];
+
+  const nearSup = sups.reduce((a,b)=>Math.abs(b-price)<Math.abs(a-price)?b:a);
+  const nearRes = ress.reduce((a,b)=>Math.abs(b-price)<Math.abs(a-price)?b:a);
+  const dSup = ((price-nearSup)/price)*100;
+  const dRes = ((nearRes-price)/price)*100;
+
+  if (dSup < dRes) { score+=2; reasons.push(`Cerca soporte ${fmt(nearSup)}`); }
+  else              { score-=1; reasons.push(`Cerca resistencia ${fmt(nearRes)}`); }
+
+  if      (change24h>8)  { score+=2; reasons.push(`Impulso +${change24h.toFixed(1)}%`); }
+  else if (change24h>3)  { score+=1; reasons.push(`Momentum +${change24h.toFixed(1)}%`); }
+  else if (change24h<-8) { score-=2; reasons.push(`Caída ${change24h.toFixed(1)}%`); }
+  else if (change24h<-3) { score-=1; reasons.push(`Débil ${change24h.toFixed(1)}%`); }
+
+  const rangeMin = sups[sups.length-1], rangeMax = ress[ress.length-1];
+  const pos = (price-rangeMin)/(rangeMax-rangeMin);
+  if (pos<0.3)  { score+=1; reasons.push('Zona baja del rango'); }
+  else if(pos>0.75){ score-=1; reasons.push('Zona alta — precaución'); }
+
+  let signal, strength;
+  if      (score>=3)  { signal='LONG';    strength=Math.min(score,5); }
+  else if (score<=-2) { signal='SHORT';   strength=Math.min(Math.abs(score),5); }
+  else                { signal='NEUTRAL'; strength=2; }
+
+  const sl  = signal==='LONG' ? +(price*(1-levels.sl_pct)).toFixed(4) : +(price*(1+levels.sl_pct)).toFixed(4);
+  const tp1 = signal==='LONG' ? +ress[0].toFixed(4) : +sups[0].toFixed(4);
+  const tp2 = signal==='LONG' ? +ress[1].toFixed(4) : +sups[1].toFixed(4);
+
+  const pct = (a,b)=>+((Math.abs(a-b)/b)*100).toFixed(1);
+
+  return {
+    signal, strength,
+    reason: reasons.slice(0,2).join(' · '),
+    sl, slpct: +(levels.sl_pct*100).toFixed(1),
+    tp1, tp1pct: pct(tp1,price),
+    tp2, tp2pct: pct(tp2,price),
+    sups, ress,
+  };
+}
+
+function getSignalTs(ticker, signal) {
+  recordSignal(ticker, signal);
+  return signalHistory[ticker]?.ts || Date.now();
+}
+
+// ── FORMAT ────────────────────────────────────────────────────────────────────
+function fmt(n) {
+  if (!n||isNaN(n)) return '—';
+  if (n>=1000) return n.toLocaleString('es-ES',{maximumFractionDigits:0});
+  if (n>=100)  return n.toFixed(1);
+  if (n>=1)    return n.toFixed(2);
+  if (n>=0.01) return n.toFixed(4);
+  return n.toFixed(6);
+}
+
+function colorForTicker(t) {
+  const c={ZEC:'#F4B942',TAO:'#4A9EFF',BTC:'#F7931A',ETH:'#627EEA',SOL:'#9945FF',
+           BNB:'#F0B90B',XRP:'#00AAE4',ADA:'#0033AD',DOGE:'#C2A633',AVAX:'#E84142',
+           DOT:'#E6007A',LINK:'#2A5ADA',MATIC:'#8247E5',NEAR:'#00C08B',
+           UNI:'#FF007A',ATOM:'#6F4CFF',HYPE:'#00E5A0',SUI:'#4DA2FF',
+           APT:'#00BCD4',INJ:'#0082FF',TIA:'#7B2FBE',OP:'#FF0420',ARB:'#12AAFF'};
+  return c[t]||'#'+[...t].reduce((h,c)=>(h*31+c.charCodeAt(0))&0xffffff,0).toString(16).padStart(6,'0');
+}
+
+function emojiForTicker(t) {
+  const m={BTC:'₿',ETH:'Ξ',SOL:'◎',BNB:'⬡',ZEC:'ⓩ',TAO:'τ',DOGE:'Ð',
+           XRP:'✕',ADA:'₳',HYPE:'H',LINK:'⬡',UNI:'🦄'};
+  return m[t]||t.charAt(0);
+}
+
+// ── FETCH ─────────────────────────────────────────────────────────────────────
+async function fetchBinance(ticker) {
+  const r = await fetch(`https://api.binance.com/api/v3/ticker/24hr?symbol=${ticker}USDT`);
+  if (!r.ok) throw new Error('binance');
+  const d = await r.json();
+  if (d.code) throw new Error(d.msg);
+  return { price:parseFloat(d.lastPrice), change24h:parseFloat(d.priceChangePercent), source:'binance' };
+}
+
+async function fetchCoinGecko(ticker) {
+  const id = COINGECKO_MAP[ticker]||ticker.toLowerCase();
+  const r = await fetch(`https://api.coingecko.com/api/v3/simple/price?ids=${id}&vs_currencies=usd&include_24hr_change=true`);
+  if (!r.ok) throw new Error('coingecko');
+  const d = await r.json();
+  const e = d[id]; if (!e) throw new Error('no data');
+  return { price:e.usd, change24h:e.usd_24h_change??0, source:'coingecko' };
+}
+
+async function fetchPrice(ticker) {
+  try { return await fetchBinance(ticker); } catch(e) {
+    try { return await fetchCoinGecko(ticker); } catch(e2) {
+      throw new Error(`Sin datos para ${ticker}`);
+    }
+  }
+}
+
+// ── TOGGLE EXPAND ─────────────────────────────────────────────────────────────
+function toggleExpand(ticker) {
+  expanded[ticker] = !expanded[ticker];
+  const card = document.getElementById(`card-${ticker}`);
+  if (!card) return;
+  if (expanded[ticker]) card.classList.add('expanded');
+  else card.classList.remove('expanded');
+}
+
+// ── RENDER ────────────────────────────────────────────────────────────────────
+function renderCard(ticker, data) {
+  const container = document.getElementById('cardsContainer');
+  let card = document.getElementById(`card-${ticker}`);
+  const isNew = !card;
+
+  if (isNew) {
+    card = document.createElement('div');
+    card.className = 'asset-card';
+    card.id = `card-${ticker}`;
+    container.appendChild(card);
+  }
+
+  const color = colorForTicker(ticker);
+  const icon  = emojiForTicker(ticker);
+
+  if (!data) {
+    card.innerHTML = `
+      <div class="card-summary" onclick="toggleExpand('${ticker}')">
+        <div class="asset-icon" style="background:${color}22;color:${color}">${icon}</div>
+        <div class="summary-info">
+          <div class="asset-ticker" style="color:${color}">${ticker}/USDT</div>
+          <div style="font-size:10px;color:var(--muted)">Cargando...</div>
+        </div>
+        <div class="summary-right">
+          <div class="asset-price loading-text" style="min-width:70px">000.00</div>
+          <div class="asset-change loading-text" style="min-width:50px">+0.00%</div>
+        </div>
+        <div class="chevron">▾</div>
+      </div>`;
+    return;
+  }
+
+  const { price, change24h, source } = data;
+  const levels = computeLevels(ticker, price);
+  const sig    = computeSignal(ticker, price, change24h, levels);
+  const arrow  = sig.signal==='LONG'?'↑':sig.signal==='SHORT'?'↓':'→';
+  const isExp  = expanded[ticker];
+  const sigTs  = getSignalTs(ticker, sig.signal);
+  const tsIcon = sig.signal==='LONG' ? '📈' : sig.signal==='SHORT' ? '📉' : '➡️';
+
+  card.innerHTML = `
+    <div class="card-summary" onclick="toggleExpand('${ticker}')">
+      <div class="asset-icon" style="background:${color}22;color:${color}">${icon}</div>
+      <div class="summary-info">
+        <div class="asset-ticker" style="color:${color}">${ticker}/USDT</div>
+        <div style="display:flex;align-items:center;gap:4px;margin-top:3px">
+          <span class="source-badge ${source}">${source==='binance'?'BINANCE':'COINGECKO'}</span>
+        </div>
+      </div>
+      <div class="summary-right">
+        <div class="asset-price">${fmt(price)}</div>
+        <div class="asset-change ${change24h>=0?'pos':'neg'}">${change24h>=0?'+':''}${change24h.toFixed(2)}%</div>
+        <div class="signal-pill ${sig.signal}">${arrow} ${sig.signal}</div>
+      </div>
+      <div class="chevron">▾</div>
+    </div>
+
+    <div class="card-detail">
+      <div class="signal-block">
+        <div class="signal-badge ${sig.signal}">${arrow} ${sig.signal}</div>
+        <div class="signal-reason">${sig.reason}</div>
+        <div class="signal-strength">
+          ${[1,2,3,4,5].map(i=>`<div class="strength-pip ${i<=sig.strength?'active '+sig.signal:''}"></div>`).join('')}
+        </div>
+      </div>
+
+      <div class="tpsl-row">
+        <div class="tpsl-box">
+          <div class="tpsl-label sl">STOP LOSS</div>
+          <div class="tpsl-value">${fmt(sig.sl)}</div>
+          <div class="tpsl-pct">-${sig.slpct}%</div>
+        </div>
+        <div class="tpsl-box">
+          <div class="tpsl-label tp1">TP1</div>
+          <div class="tpsl-value">${fmt(sig.tp1)}</div>
+          <div class="tpsl-pct">+${sig.tp1pct}%</div>
+        </div>
+        <div class="tpsl-box">
+          <div class="tpsl-label tp2">TP2</div>
+          <div class="tpsl-value">${fmt(sig.tp2)}</div>
+          <div class="tpsl-pct">+${sig.tp2pct}%</div>
+        </div>
+      </div>
+
+      <div class="levels-grid">
+        <div class="level-group">
+          <div class="level-group-label support">Soportes</div>
+          ${sig.sups.map((s,i)=>`
+            <div class="level-item">
+              <span class="level-label">S${i+1}</span>
+              <span class="level-price support">${fmt(s)}</span>
+            </div>`).join('')}
+        </div>
+        <div class="level-group">
+          <div class="level-group-label resistance">Resistencias</div>
+          ${sig.ress.map((r,i)=>`
+            <div class="level-item">
+              <span class="level-label">R${i+1}</span>
+              <span class="level-price resistance">${fmt(r)}</span>
+            </div>`).join('')}
+        </div>
+      </div>
+
+      <div class="signal-timestamp">
+        <div class="ts-icon">${tsIcon}</div>
+        <div class="ts-info">
+          <div class="ts-label">Señal formada</div>
+          <div class="ts-datetime">${fmtDatetime(sigTs)}</div>
+          <div class="ts-elapsed" id="elapsed-${ticker}">hace <span>${fmtElapsed(Date.now() - sigTs)}</span></div>
+        </div>
+      </div>
+
+      <div class="detail-footer">
+        <button class="remove-btn" onclick="event.stopPropagation();removeAsset('${ticker}')">✕ Quitar ${ticker}</button>
+      </div>
+    </div>`;
+
+  if (isExp) card.classList.add('expanded');
+  else card.classList.remove('expanded');
+}
+
+function renderEmpty() {
+  document.getElementById('cardsContainer').innerHTML = `
+    <div class="empty-state">
+      <div class="empty-icon">📡</div>
+      <div class="empty-title">Sin activos</div>
+      <div class="empty-sub">Añade un ticker arriba.<br>Ej: BTC, ETH, SOL, HYPE</div>
+    </div>`;
+}
+
+// ── UPDATE ────────────────────────────────────────────────────────────────────
+async function updateAll() {
+  if (assets.length===0){ renderEmpty(); return; }
+  const results = await Promise.allSettled(assets.map(t=>fetchPrice(t)));
+  results.forEach((r,i)=>{
+    const t=assets[i];
+    if (r.status==='fulfilled'){ priceData[t]=r.value; renderCard(t,r.value); }
+    else renderCard(t,priceData[t]||null);
+  });
+  document.getElementById('lastUpdate').textContent=
+    `Actualizado: ${new Date().toLocaleTimeString('es-ES')}`;
+}
+
+// ── COUNTDOWN ─────────────────────────────────────────────────────────────────
+function startCountdown() {
+  countdown=60;
+  clearInterval(cdTimer);
+  clearInterval(elapsedTimer);
+  cdTimer=setInterval(()=>{
+    countdown--;
+    document.getElementById('countdownDisplay').textContent=`${countdown}s`;
+    document.getElementById('countdownBar').style.width=(countdown/60*100)+'%';
+    if (countdown<=0){
+      clearInterval(cdTimer);
+      updateAll().then(startCountdown);
+    }
+  },1000);
+  // update elapsed every second independently
+  elapsedTimer = setInterval(updateAllElapsed, 1000);
+}
+
+// ── MANUAL REFRESH ────────────────────────────────────────────────────────────
+async function manualRefresh() {
+  if (isRefreshing) return;
+  isRefreshing=true;
+  const btn=document.getElementById('refreshBtn');
+  btn.disabled=true;
+  btn.classList.add('loading');
+  clearInterval(cdTimer);
+  clearInterval(elapsedTimer);
+  await updateAll();
+  isRefreshing=false;
+  btn.disabled=false;
+  btn.classList.remove('loading');
+  startCountdown();
+  showToast('Datos actualizados','success');
+}
+
+// ── ASSET MANAGEMENT ─────────────────────────────────────────────────────────
+function saveAssets(){ localStorage.setItem('sb_assets',JSON.stringify(assets)); }
+
+async function handleAdd() {
+  const input=document.getElementById('addInput');
+  const ticker=input.value.trim().toUpperCase().replace(/[^A-Z0-9]/g,'');
+  if (!ticker) return;
+  if (assets.includes(ticker)){ showToast(`${ticker} ya está en la lista`,'info'); return; }
+  if (assets.length>=12){ showToast('Máximo 12 activos','error'); return; }
+
+  const btn=document.getElementById('addBtn');
+  btn.disabled=true; btn.textContent='...'; input.value='';
+
+  assets.push(ticker); saveAssets(); renderCard(ticker,null);
+
+  try {
+    const data=await fetchPrice(ticker);
+    priceData[ticker]=data; renderCard(ticker,data);
+    showToast(`${ticker} añadido vía ${data.source==='binance'?'Binance':'CoinGecko'}`, 'success');
+  } catch(e){
+    showToast(`No se encontró ${ticker}`,'error');
+    assets=assets.filter(t=>t!==ticker); saveAssets();
+    document.getElementById(`card-${ticker}`)?.remove();
+    if (assets.length===0) renderEmpty();
+  }
+  btn.disabled=false; btn.textContent='+ Añadir';
+}
+
+function removeAsset(ticker){
+  expanded[ticker]=false;
+  assets=assets.filter(t=>t!==ticker);
+  delete priceData[ticker]; saveAssets();
+  document.getElementById(`card-${ticker}`)?.remove();
+  if (assets.length===0) renderEmpty();
+  showToast(`${ticker} eliminado`,'info');
+}
+
+// ── TOAST ─────────────────────────────────────────────────────────────────────
+let toastTimer=null;
+function showToast(msg,type='info'){
+  const t=document.getElementById('toast');
+  t.textContent=msg; t.className=`toast ${type} show`;
+  clearTimeout(toastTimer);
+  toastTimer=setTimeout(()=>t.classList.remove('show'),3000);
+}
+
+// ── ENTER KEY ─────────────────────────────────────────────────────────────────
+document.getElementById('addInput').addEventListener('keydown',e=>{ if(e.key==='Enter') handleAdd(); });
+
+// ── INIT ──────────────────────────────────────────────────────────────────────
+(async function init(){
+  updateNotifUI();
+  if (assets.length===0){ renderEmpty(); return; }
+  assets.forEach(t=>renderCard(t,null));
+  await updateAll();
+  startCountdown();
+})();
+</script>
+</body>
+</html>
